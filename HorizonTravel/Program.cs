@@ -3,6 +3,7 @@ using HorizonTravel.Data;
 using HorizonTravel.Repositories;
 using HorizonTravel.Services;
 using HorizonTravel.Middleware;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +32,11 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference("/docs", options =>
+    {
+        options.WithTitle("HorizonTravel API")
+               .WithTheme(ScalarTheme.Purple);
+    });
 }
 
 app.UseHttpsRedirection();
