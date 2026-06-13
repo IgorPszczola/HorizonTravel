@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using HorizonTravel.Data;
 using HorizonTravel.Repositories;
 using HorizonTravel.Services;
+using HorizonTravel.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,9 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Rejestracja globalnej obsługi błędów
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
