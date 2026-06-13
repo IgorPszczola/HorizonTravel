@@ -17,13 +17,26 @@ namespace HorizonTravel.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] string? kraj)
+        public async Task<IActionResult> GetAll([FromQuery] string? kraj, [FromQuery] string? sortujPoCenie)
         {
             var trips = await _tripRepository.GetAllAsync();
 
+           
             if (!string.IsNullOrWhiteSpace(kraj))
             {
                 trips = trips.Where(t => t.Kraj.Contains(kraj, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(sortujPoCenie))
+            {
+                if (sortujPoCenie.Equals("asc", StringComparison.OrdinalIgnoreCase))
+                {
+                    trips = trips.OrderBy(t => t.AktualnaCena);
+                }
+                else if (sortujPoCenie.Equals("desc", StringComparison.OrdinalIgnoreCase))
+                {
+                    trips = trips.OrderByDescending(t => t.AktualnaCena);
+                }
             }
 
             var result = trips.Select(t => new

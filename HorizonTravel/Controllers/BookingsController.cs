@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using HorizonTravel.Dto;
+using HorizonTravel.Model;
 using HorizonTravel.Repositories;
 using HorizonTravel.Services;
 
@@ -62,6 +63,37 @@ namespace HorizonTravel.Controllers
             });
 
             return Ok(result);
+        }
+
+        [HttpPost("{id}/pay")]
+        public async Task<IActionResult> Pay(int id, [FromBody] PaymentDto dto)
+        {
+            var booking = await _bookingRepository.GetByIdAsync(id);
+            if (booking == null)
+            {
+                return NotFound(new { message = "Rezerwacja nie istnieje." });
+            }
+
+            if (booking.Status == "Opłacona")
+            {
+                return BadRequest(new { message = "Rezerwacja została już opłacona." });
+            }
+
+            var payment = new Payment
+            {
+                RezerwacjaId = booking.Id,
+                Kwota = booking.SumarycznaCena,
+                DataPlatnosci = DateTime.Now,
+                MetodaPlatnosci = dto.MetodaPlatnosci
+            };
+
+            booking.Status = "Opłacona";
+            booking.Payments.Add(payment);
+
+            await _bookingRepository.UpdateAsync(booking);
+            await _bookingRepository.SaveChangesAsync();
+
+            return Ok(new { message = "Rezerwacja została pomyślnie opłacona.", status = booking.Status });
         }
     }
 }
