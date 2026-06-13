@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using HorizonTravel.Dto;
 using HorizonTravel.Model;
 using HorizonTravel.Repositories;
@@ -80,6 +81,7 @@ namespace HorizonTravel.Controllers
             });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromForm] TripCreateDto dto)
         {
@@ -116,6 +118,7 @@ namespace HorizonTravel.Controllers
             });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromForm] TripUpdateDto dto)
         {
@@ -147,6 +150,7 @@ namespace HorizonTravel.Controllers
             return Ok(new { message = "Wycieczka została zaktualizowana." });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {

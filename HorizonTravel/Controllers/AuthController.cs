@@ -46,20 +46,13 @@ namespace HorizonTravel.Controllers
                 return BadRequest(new { message = "Email i hasło są wymagane." });
             }
 
-            var user = await _authService.LoginAsync(loginDto.Email, loginDto.Password);
-            if (user == null)
+            var loginResult = await _authService.LoginAsync(loginDto.Email, loginDto.Password);
+            if (loginResult == null)
             {
                 return Unauthorized(new { message = "Niepoprawny e-mail lub hasło." });
             }
 
-            return Ok(new
-            {
-                id = user.Id,
-                email = user.Email,
-                imie = user.Imie,
-                nazwisko = user.Nazwisko,
-                rola = user.Rola?.NazwaRoli ?? "Klient"
-            });
+            return Ok(loginResult);
         }
     }
 }

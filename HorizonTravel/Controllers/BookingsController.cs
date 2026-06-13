@@ -4,8 +4,11 @@ using HorizonTravel.Model;
 using HorizonTravel.Repositories;
 using HorizonTravel.Services;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace HorizonTravel.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/bookings")]
     public class BookingsController : ControllerBase

@@ -2,8 +2,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using HorizonTravel.Data;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace HorizonTravel.Controllers
 {
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/stats")]
     public class StatsController : ControllerBase

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using HorizonTravel.Dto;
 using HorizonTravel.Model;
 using HorizonTravel.Repositories;
@@ -40,6 +41,7 @@ namespace HorizonTravel.Controllers
             return Ok(result);
         }
 
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ReviewDto dto)
         {

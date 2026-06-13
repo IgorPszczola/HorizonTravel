@@ -77,6 +77,9 @@ namespace HorizonTravel.Data
                 .IsUnique(false);
 
             modelBuilder.Entity<Trip>()
+                .ToTable(tb => tb.HasTrigger("tr_ArchivePriceOnUpdate"));
+
+            modelBuilder.Entity<Trip>()
                 .Property(t => t.AktualnaCena)
                 .HasPrecision(18, 2);
 
