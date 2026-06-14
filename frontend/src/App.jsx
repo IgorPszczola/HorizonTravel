@@ -70,7 +70,10 @@ function App() {
   // Modal states
   const [authModal, setAuthModal] = useState({ isOpen: false, tab: 'login' }); // 'login' | 'register'
   const [selectedTrip, setSelectedTrip] = useState(null); // Trip details modal
+  const [hideBookingForm, setHideBookingForm] = useState(false);
+  const [bookingStatus, setBookingStatus] = useState(null);
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, bookingId: null, amount: 0 });
+  const [tripToReopen, setTripToReopen] = useState(null);
 
   // Data states
   const [trips, setTrips] = useState([]);
@@ -122,6 +125,15 @@ function App() {
     setTimeout(() => {
       setToast(prev => ({ ...prev, show: false }));
     }, 4000);
+  };
+
+  const handleCancelAuth = () => {
+    setAuthModal(prev => ({ ...prev, isOpen: false }));
+    if (tripToReopen) {
+      setSelectedTrip(tripToReopen);
+      setTripToReopen(null);
+      setHideBookingForm(false);
+    }
   };
 
   // Fetch Trips
@@ -249,6 +261,11 @@ function App() {
           showToast(`Witaj z powrotem, ${data.imie}!`, 'success');
           // Clear inputs
           setAuthForm({ email: '', password: '', imie: '', nazwisko: '' });
+          if (tripToReopen) {
+            setSelectedTrip(tripToReopen);
+            setTripToReopen(null);
+            setHideBookingForm(false);
+          }
         } else {
           showToast('Konto zostało zarejestrowane! Zaloguj się teraz.', 'success');
           setAuthModal(prev => ({ ...prev, tab: 'login' }));
@@ -482,11 +499,39 @@ function App() {
   };
 
   // Open Trip Details
-  const handleOpenTripDetails = (trip) => {
+  const handleOpenTripDetails = (trip, disableBooking = false) => {
     setSelectedTrip(trip);
+    setHideBookingForm(disableBooking);
+    if (!disableBooking) {
+      setBookingStatus(null);
+    }
     fetchTripReviews(trip.id);
     setBookingForm({ participants: 1 });
     setReviewForm({ rating: 5, comment: '' });
+  };
+
+  const handleOpenTripDetailsById = async (tripId, disableBooking = false) => {
+    if (!tripId) return;
+    // 1. Try to find in loaded trips
+    const localTrip = trips.find(t => t.id === tripId);
+    if (localTrip) {
+      handleOpenTripDetails(localTrip, disableBooking);
+      return;
+    }
+    
+    // 2. Fetch from API
+    try {
+      const res = await fetch(`${API_BASE_URL}/trips/${tripId}`);
+      if (res.ok) {
+        const data = await res.json();
+        handleOpenTripDetails(data, disableBooking);
+      } else {
+        showToast('Nie udało się pobrać szczegółów wycieczki', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Błąd połączenia z serwerem', 'error');
+    }
   };
 
   // Handle Image Upload change
@@ -703,6 +748,18 @@ function App() {
 
                     <div className="booking-item-right">
                       <span className="booking-item-price">{booking.sumarycznaCena} zł</span>
+                      
+                      <button 
+                        className="btn btn-outline"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 14px' }}
+                        onClick={() => {
+                          setBookingStatus(booking.status);
+                          handleOpenTripDetailsById(booking.wycieczka?.id, true);
+                        }}
+                      >
+                        <i className="fa-solid fa-circle-info"></i> Szczegóły
+                      </button>
+
                       {booking.status !== 'Opłacona' ? (
                         <button 
                           className="btn btn-secondary"
@@ -1033,9 +1090,9 @@ function App() {
 
       {/* Auth Modal (Login / Register) */}
       {authModal.isOpen && (
-        <div className="modal-overlay" onClick={() => setAuthModal(prev => ({ ...prev, isOpen: false }))}>
+        <div className="modal-overlay" onClick={handleCancelAuth}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close-btn" onClick={() => setAuthModal(prev => ({ ...prev, isOpen: false }))}>
+            <button className="modal-close-btn" onClick={handleCancelAuth}>
               <i className="fa-solid fa-xmark"></i>
             </button>
 
@@ -1118,9 +1175,9 @@ function App() {
 
       {/* Trip Details & Booking Modal */}
       {selectedTrip && (
-        <div className="modal-overlay" onClick={() => setSelectedTrip(null)}>
+        <div className="modal-overlay" onClick={() => { setSelectedTrip(null); setBookingStatus(null); }}>
           <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close-btn" onClick={() => setSelectedTrip(null)}>
+            <button className="modal-close-btn" onClick={() => { setSelectedTrip(null); setBookingStatus(null); }}>
               <i className="fa-solid fa-xmark"></i>
             </button>
 
@@ -1141,7 +1198,7 @@ function App() {
               </div>
             </div>
 
-            <div className="details-body">
+            <div className="details-body" style={{ gridTemplateColumns: hideBookingForm ? '1fr' : '1.8fr 1.2fr' }}>
               {/* Description and Reviews */}
               <div>
                 <h3 className="details-desc-title">Opis Wycieczki</h3>
@@ -1162,12 +1219,23 @@ function App() {
                       {Math.ceil((new Date(selectedTrip.dataZakonczenia) - new Date(selectedTrip.dataRozpoczecia)) / (1000 * 60 * 60 * 24))} dni
                     </div>
                   </div>
-                  <div className="details-meta-item">
-                    <div className="details-meta-label">Dostępne miejsca</div>
-                    <div className="details-meta-value">
-                      {selectedTrip.dostepneMiejsca !== undefined ? selectedTrip.dostepneMiejsca : selectedTrip.maksymalnaLiczbaMiejsc} / {selectedTrip.maksymalnaLiczbaMiejsc} miejsc
+                  {bookingStatus ? (
+                    <div className="details-meta-item">
+                      <div className="details-meta-label">Status rezerwacji</div>
+                      <div className="details-meta-value">
+                        <span className={`booking-status-badge ${bookingStatus === 'Opłacona' ? 'paid' : 'pending'}`} style={{ display: 'inline-block', padding: '2px 8px', fontSize: '0.85rem' }}>
+                          {bookingStatus}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="details-meta-item">
+                      <div className="details-meta-label">Dostępne miejsca</div>
+                      <div className="details-meta-value">
+                        {selectedTrip.dostepneMiejsca !== undefined ? selectedTrip.dostepneMiejsca : selectedTrip.maksymalnaLiczbaMiejsc} / {selectedTrip.maksymalnaLiczbaMiejsc} miejsc
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Reviews Section */}
@@ -1242,63 +1310,73 @@ function App() {
                     </div>
                   ) : (
                     <div className="glass-panel" style={{ padding: '16px', marginTop: '20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      <span onClick={() => setAuthModal({ isOpen: true, tab: 'login' })} style={{ color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}>Zaloguj się</span>, aby dodać opinię.
+                      <span onClick={() => {
+                        setTripToReopen(selectedTrip);
+                        setSelectedTrip(null);
+                        setAuthModal({ isOpen: true, tab: 'login' });
+                      }} style={{ color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}>Zaloguj się</span>, aby dodać opinię.
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Side Booking Form */}
-              <div>
-                <div className="booking-card">
-                  <div className="booking-price-tag">
-                    <div className="booking-price-value">{selectedTrip.aktualnaCena} zł</div>
-                    <div className="booking-price-label">za osobę</div>
-                  </div>
-
-                  {user ? (
-                    (selectedTrip.dostepneMiejsca !== undefined ? selectedTrip.dostepneMiejsca : selectedTrip.maksymalnaLiczbaMiejsc) <= 0 ? (
-                      <div className="glass-panel" style={{ padding: '20px', textAlign: 'center', borderColor: 'var(--danger)', color: 'var(--danger)', marginTop: '16px' }}>
-                        <i className="fa-solid fa-triangle-exclamation fa-2x" style={{ marginBottom: '10px' }}></i>
-                        <p style={{ fontWeight: 600 }}>Brak wolnych miejsc na tę wycieczkę</p>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleBookingSubmit}>
-                        <div className="form-group">
-                          <label className="form-label">Liczba uczestników</label>
-                          <select 
-                            className="input-field"
-                            value={bookingForm.participants}
-                            onChange={(e) => setBookingForm({ participants: parseInt(e.target.value) })}
-                          >
-                            {Array.from({ length: Math.min(10, selectedTrip.dostepneMiejsca !== undefined ? selectedTrip.dostepneMiejsca : selectedTrip.maksymalnaLiczbaMiejsc) }).map((_, idx) => (
-                              <option key={idx} value={idx + 1}>{idx + 1} {idx === 0 ? 'osoba' : idx < 4 ? 'osoby' : 'osób'}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="booking-total-row">
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Do zapłaty:</span>
-                          <span className="booking-total-value">
-                            {selectedTrip.aktualnaCena * bookingForm.participants} zł
-                          </span>
-                        </div>
-
-                        <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '14px' }}>
-                          Rezerwuj Wycieczkę <i className="fa-solid fa-wallet"></i>
-                        </button>
-                      </form>
-                    )
-                  ) : (
-                    <div style={{ textAlign: 'center', marginTop: '16px' }}>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '16px' }}>Zaloguj się, aby dokonać rezerwacji.</p>
-                      <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setAuthModal({ isOpen: true, tab: 'login' })}>
-                        Zaloguj się teraz <i className="fa-solid fa-right-to-bracket"></i>
-                      </button>
+              {!hideBookingForm && (
+                <div>
+                  <div className="booking-card">
+                    <div className="booking-price-tag">
+                      <div className="booking-price-value">{selectedTrip.aktualnaCena} zł</div>
+                      <div className="booking-price-label">za osobę</div>
                     </div>
-                  )}
+
+                    {user ? (
+                      (selectedTrip.dostepneMiejsca !== undefined ? selectedTrip.dostepneMiejsca : selectedTrip.maksymalnaLiczbaMiejsc) <= 0 ? (
+                        <div className="glass-panel" style={{ padding: '20px', textAlign: 'center', borderColor: 'var(--danger)', color: 'var(--danger)', marginTop: '16px' }}>
+                          <i className="fa-solid fa-triangle-exclamation fa-2x" style={{ marginBottom: '10px' }}></i>
+                          <p style={{ fontWeight: 600 }}>Brak wolnych miejsc na tę wycieczkę</p>
+                        </div>
+                      ) : (
+                        <form onSubmit={handleBookingSubmit}>
+                          <div className="form-group">
+                            <label className="form-label">Liczba uczestników</label>
+                            <select 
+                              className="input-field"
+                              value={bookingForm.participants}
+                              onChange={(e) => setBookingForm({ participants: parseInt(e.target.value) })}
+                            >
+                              {Array.from({ length: Math.min(10, selectedTrip.dostepneMiejsca !== undefined ? selectedTrip.dostepneMiejsca : selectedTrip.maksymalnaLiczbaMiejsc) }).map((_, idx) => (
+                                <option key={idx} value={idx + 1}>{idx + 1} {idx === 0 ? 'osoba' : idx < 4 ? 'osoby' : 'osób'}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="booking-total-row">
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Do zapłaty:</span>
+                            <span className="booking-total-value">
+                              {selectedTrip.aktualnaCena * bookingForm.participants} zł
+                            </span>
+                          </div>
+
+                          <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '14px' }}>
+                            Rezerwuj Wycieczkę <i className="fa-solid fa-wallet"></i>
+                          </button>
+                        </form>
+                      )
+                    ) : (
+                      <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '16px' }}>Zaloguj się, aby dokonać rezerwacji.</p>
+                        <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => {
+                          setTripToReopen(selectedTrip);
+                          setSelectedTrip(null);
+                          setAuthModal({ isOpen: true, tab: 'login' });
+                        }}>
+                          Zaloguj się teraz <i className="fa-solid fa-right-to-bracket"></i>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
